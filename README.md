@@ -2,66 +2,91 @@
 
 ![Next.js](https://img.shields.io/badge/Next.js-15-black?style=flat-square&logo=next.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white)
-![Supabase](https://img.shields.io/badge/Supabase-Postgres-3FCF8E?style=flat-square&logo=supabase&logoColor=white)
+![Convex](https://img.shields.io/badge/Convex-Backend-FF6B6B?style=flat-square)
+![Telnyx](https://img.shields.io/badge/Telnyx-WebRTC-00B26B?style=flat-square)
 ![Stripe](https://img.shields.io/badge/Stripe-Billing-635BFF?style=flat-square&logo=stripe&logoColor=white)
-![WebRTC](https://img.shields.io/badge/Telnyx-WebRTC-00B26B?style=flat-square)
+![Rust](https://img.shields.io/badge/Rust-WASM-000000?style=flat-square&logo=rust&logoColor=white)
 ![Repo](https://img.shields.io/badge/Source-Private-orange?style=flat-square)
 
-**A full-featured, multi-tenant SaaS platform combining CRM, power dialer, SMS, AI call analysis, and usage-based billing.** Built for sales teams that need an all-in-one outbound communication platform.
+**I built a full SaaS platform from scratch — CRM, power dialer, SMS, AI call analysis, and billing — that a sales team could actually use to run their entire outbound operation from a browser.** No phone hardware, no third-party dialer fees, just log in and start calling.
 
 ---
 
-## Platform Features
+## Why This Is Hard
 
-### Softphone & Power Dialer
-- In-browser calling via Telnyx WebRTC SDK — no hardware required
-- Power dialer with sequential, fresh, hot, and retry queue modes
-- Mute, hold, consult transfer, and manual voicemail drop
-- Google Sheets sync for lead imports
+Building a dialer sounds simple until you realize:
+- **WebRTC in a browser is brutal** — handling oudio streams, oall state, oold, transfer, and voicemail drop across different browsers and network conditions
+- **Multi-tenancy at the data layer** — every query, every webhook, every real-time update has to be scoped to the correct organization. One leak = lawsuit.
+- **Usage-based billing** — you're metering voice minutes, SMS segments, recording storage, and AI analysis per org, per agent, in real-time. Stripe doesn't hand you this — you build it.
+- **TCPA compliance** — DNC lists, consent tracking, suppression lists. Get this wrong and your customer gets fined $500–$1,500 per call.
 
-### CRM & Pipeline Management
-- Full lead management with table and kanban views
-- Bulk import, archive, callback scheduling
-- Complete call history and activity tracking per lead
+## What I Built
 
-### SMS & Communication
-- Single and bulk messaging with real-time delivery tracking
-- DNC / suppression list / consent enforcement (TCPA compliant)
+### Browser-Based Softphone (Telnyx WebRTC)
+Built a full softphone that runs in the browser. No downloads, no plugins. Features:
+- **Make and receive calls** directly from the browser via Telnyx WebRTC SDK
+- **Mute, hold, consult transfer** — not just basic calling, full call control
+- **Manual voicemail drop** — pre-recorded messages that agents drop with one click
+- **Real-time call status** with duration tracking
+
+### Power Dialer with 4 Queue Modes
+- **Sequential** — call the list in order
+- **Fresh** — prioritize never-contacted leads
+- **Hot** — prioritize leads with recent activity
+- **Retry** — cycle back through no-answers and voicemails
+
+Each mode pulls from the queue, runs compliance gates (DNC check, consent check) before every single dial, logs the attempt, and advances automatically.
+
+### Full CRM & Pipeline
+- Table and kanban views for lead management
+- Bulk import from CSV and Google Sheets
+- Per-lead call history, notes, callbacks, and activity timeline
+- Archive and restore workflows
 
 ### AI-Powered Call Analysis
-- Automatic call transcription and scoring
-- AI coaching feedback on recorded calls
-- Performance analytics per agent
+- Automatic transcription of recorded calls
+- AI scoring and coaching feedback per call
+- Performance analytics per agent across the org
 
-### Billing & Multi-Tenancy
-- Stripe usage-based billing (per-seat + metered voice/SMS/recording/AI minutes)
-- Full organization isolation with role-based access (super_admin, admin, agent)
-- Per-tenant data scoping via Supabase Row Level Security
+### Usage-Based Billing (Stripe)
+- Per-seat subscription + metered usage (voice minutes, SMS, recordings, AI analysis)
+- Real-time usage tracking per organization
+- Automated invoicing and overage handling
 
-### AI Chatbot
-- OpenRouter-powered assistant with CRM tool calling
-- Natural language queries: search leads, pull stats, manage queue
+### Multi-Tenant Architecture
+- Full organization isolation via Row Level Security
+- Role-based access: `super_admin`, `admin`, `agent`
+- Every database query, every webhook, every real-time subscription scoped by `org_id`
+
+### AI Chatbot with CRM Tool Calling
+- Natural language interface powered by OpenRouter
+- Agents can ask "how many calls did I make today?" or "find leads in Orlando" and the bot queries the CRM directly
+
+### Rust WASM Module
+- Performance-critical client-side processing compiled to WebAssembly from Rust
+- Handles compute-heavy operations without blocking the UI thread
 
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────┐
 │                   Frontend                       │
-│         Next.js 15 App Router + React            │
+│         Next.js 15 + React + Zustand             │
 │    Telnyx WebRTC SDK ◄──► SIP Credentials        │
+│         Rust WASM for heavy client ops           │
 └──────────────────┬──────────────────────────────┘
                    │
     ┌──────────────┼──────────────────┐
     ▼              ▼                  ▼
 ┌────────┐  ┌───────────┐  ┌──────────────┐
-│ API    │  │ Webhooks  │  │ AI Pipeline  │
-│ Routes │  │ (Telnyx)  │  │ (OpenRouter) │
+│ Convex │  │ Webhooks  │  │ AI Pipeline  │
+│ Backend│  │ (Telnyx)  │  │ (OpenRouter) │
 └───┬────┘  └─────┬─────┘  └──────┬───────┘
     │             │                │
     ▼             ▼                ▼
 ┌─────────────────────────────────────────────┐
-│              Supabase (Postgres)              │
-│  RLS Policies │ org_id scoping │ Real-time   │
+│              Convex (Real-time DB)            │
+│  RLS Policies │ org_id scoping │ Live sync   │
 └──────────────────┬──────────────────────────┘
                    │
           ┌────────┴────────┐
@@ -72,31 +97,10 @@
     └──────────┘     └──────────┘
 ```
 
-### Call Flow
-1. Agent dials → API runs compliance checks (DNC, consent) → Telnyx creates call
-2. WebRTC SDK connects browser audio via SIP credentials
-3. Webhooks process call events (state changes, recordings)
-4. Call logs, recordings, and AI analysis stored with org_id scoping
-
 ## Tech Stack
 
-- **Framework:** Next.js 15 (App Router), React, TypeScript
-- **Database:** Supabase (PostgreSQL) with Row Level Security
-- **Voice/SMS:** Telnyx WebRTC SDK, REST APIs
-- **Payments:** Stripe (usage-based + subscription billing)
-- **AI:** OpenRouter (transcription, scoring, chatbot)
-- **Auth:** Supabase Auth with role-based access control
-- **Deployment:** Vercel
-
-## Skills Demonstrated
-
-- Multi-tenant SaaS architecture with data isolation
-- Real-time WebRTC integration for browser-based calling
-- Usage-based billing system design with Stripe
-- TCPA compliance implementation (DNC, consent tracking)
-- AI pipeline integration for call analysis
-- Full-stack development from database design to UI
+`Next.js 15` · `TypeScript` · `Convex` · `Telnyx WebRTC` · `Stripe` · `Tailwind v4` · `Zustand` · `Rust WASM` · `OpenRouter` · `Vercel`
 
 ---
 
-> *This is a showcase page for a private repository. Source code available upon request for verified opportunities.*
+> *Closed source — actively in development. Demo and source code available for serious inquiries.*
