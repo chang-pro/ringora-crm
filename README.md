@@ -10,12 +10,19 @@
 
 **I built a full SaaS platform from scratch — CRM, power dialer, SMS, AI call analysis, and billing — that a sales team could actually use to run their entire outbound operation from a browser.** No phone hardware, no third-party dialer fees, just log in and start calling.
 
+**⚡ At a glance**
+- 📞 Browser softphone (Telnyx WebRTC) — make/receive, hold, consult-transfer, one-click voicemail drop
+- 🔁 4-mode power dialer with a TCPA/DNC compliance gate on *every* dial
+- 💳 Real-time usage-based billing (voice min · SMS · recordings · AI) metered into Stripe
+- 🏢 True multi-tenant isolation — org-scoped RLS on every query, webhook, and live subscription
+- 🧠 AI call scoring + a CRM chatbot that calls tools ("how many calls today?", "find leads in Orlando")
+
 ---
 
 ## Why This Is Hard
 
 Building a dialer sounds simple until you realize:
-- **WebRTC in a browser is brutal** — handling oudio streams, oall state, oold, transfer, and voicemail drop across different browsers and network conditions
+- **WebRTC in a browser is brutal** — handling audio streams, call state, hold, transfer, and voicemail drop across different browsers and network conditions
 - **Multi-tenancy at the data layer** — every query, every webhook, every real-time update has to be scoped to the correct organization. One leak = lawsuit.
 - **Usage-based billing** — you're metering voice minutes, SMS segments, recording storage, and AI analysis per org, per agent, in real-time. Stripe doesn't hand you this — you build it.
 - **TCPA compliance** — DNC lists, consent tracking, suppression lists. Get this wrong and your customer gets fined $500–$1,500 per call.
